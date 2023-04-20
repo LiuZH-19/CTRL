@@ -13,6 +13,8 @@ The recommended requirements for CTRL are specified as follows:
 * scikit_learn==0.24.2
 * statsmodels==0.12.2
 * Bottleneck==1.3.2
+* torchcde
+* h5py
 
 The dependencies can be installed by:
 ```bash

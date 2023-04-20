@@ -1,15 +1,12 @@
-from audioop import avgpp
 import torch
 import numpy as np
 import pandas as pd
-from xlutils.copy import copy
-from copy import deepcopy
 import argparse
 import os
 import sys
 import time
 import datetime
-from tensorboardX import SummaryWriter
+# from tensorboardX import SummaryWriter
 from ctrl import CTRL
 import tasks
 import datautils
@@ -47,7 +44,7 @@ def main(args, run_dir, seed):
     os.makedirs(run_dir, exist_ok=True)   
     
     sys.stdout = Logger(os.path.join(run_dir,'log.txt')) 
-    writer = SummaryWriter(run_dir)
+    # writer = SummaryWriter(run_dir)
 
     print("Dataset:", args.dataset)
     print("Arguments:", str(args))
@@ -190,7 +187,7 @@ if __name__ == '__main__':
     parser.add_argument('--debiase', action="store_true", help='Whether to eliminate false negative samples')
     parser.add_argument('--threshold', type=float, default=0.99, help='The similarity threshold to filter false negatives')
     parser.add_argument('--topk', type=float, default =0.2, help='Proportion of the topk to screen the false negative samples')
-    parser.add_argument('--runs', type=int, default =1, help='Number of executions')
+    parser.add_argument('--runs', type=int, default =5, help='Number of executions')
     
     args = parser.parse_args()
             

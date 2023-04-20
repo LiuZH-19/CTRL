@@ -1,10 +1,8 @@
-from distutils.dep_util import newer_group
-from operator import ne
 import torch
 from torch import nn
 import torch.nn.functional as F
 import numpy as np
-from models.gen_neg import mix
+
 
 
 def contrastive_loss(z1, z2, z_neg = None, alpha=0.5, temporal_unit=0, debiase = False, threshold = 0.98, topk = 0.4, temp_H = True, ins_H = True):

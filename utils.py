@@ -46,10 +46,10 @@ def split_with_nan(x, sections, axis=0):
 
 def split_without_nan(x, sections, axis=1):
     assert x.dtype in [np.float16, np.float32, np.float64]
-    arrs = np.array_split(x, sections, axis=axis) #前 l % n 个组的大小是 L // n + 1，剩下组的大小是 L // n,最短长度为L // n
+    arrs = np.array_split(x, sections, axis=axis) 
     target_length = arrs[-1].shape[axis]
     for i in range(len(arrs)):
-        arrs[i] = arrs[i][:,:target_length,:] #arrs 等分
+        arrs[i] = arrs[i][:,:target_length,:] 
     return arrs
 
 def take_per_row(A, indx, num_elem):
