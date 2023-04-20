@@ -43,8 +43,6 @@ The datasets can be obtained and put into `datasets/` folder in the following wa
 To train and evaluate CTRL on a dataset, run the following command:
 
 ```train & evaluate
-python train.py <dataset_name> <run_name> --loader <loader> --batch-size <batch_size> --repr-dims <repr_dims> --gpu <gpu> --eval
-
 python train_mul_times.py <dataset_name> <run_name> --loader <loader> --batch-size <batch_size>  --repr-dims <repr_dims>   --eval --taskW <taskW> --hard-neg <hard_neg> --debiase --threshold <threshold> --topk <topk> --max-train-length <len>  --gpu <gpu>
 ```
 The detailed descriptions about the arguments are as following:
