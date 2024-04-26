@@ -1,6 +1,6 @@
 # CTRL
 
-This repository contains the implementation for the paper An NCDE-based Framework for Universal Representation Learning of Time Series. This is not the final official repository because we want to maintain anonymity.
+This repository contains the implementation for the paper An NCDE-based Framework for Universal Representation Learning of Time Series. 
 
 ## Requirements
 
