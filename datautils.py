@@ -5,14 +5,15 @@ import math
 import random
 from datetime import datetime
 import pickle
-from utils import pkl_load, pad_nan_to_target
+from utils import pkl_load, pad_nan_to_target, data_dropout
 from scipy.io.arff import loadarff
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import h5py
 
-def load_UCR(dataset):
-    train_file = os.path.join('datasets/UCR', dataset, dataset + "_TRAIN.tsv")
-    test_file = os.path.join('datasets/UCR', dataset, dataset + "_TEST.tsv")
+datasets_folder = 'datasets'
+def load_UCR(dataset, irregular):
+    train_file = os.path.join(datasets_folder, 'UCR', dataset, dataset + "_TRAIN.tsv")
+    test_file = os.path.join(datasets_folder, 'UCR', dataset, dataset + "_TEST.tsv")
     train_df = pd.read_csv(train_file, sep='\t', header=None)
     test_df = pd.read_csv(test_file, sep='\t', header=None)
     train_array = np.array(train_df)
@@ -82,12 +83,17 @@ def load_UCR(dataset):
     std = np.nanstd(train)
     train = (train - mean) / std
     test = (test - mean) / std
-    return train[..., np.newaxis], train_labels, test[..., np.newaxis], test_labels
+    train_data = train[..., np.newaxis]
+    test_data = test[..., np.newaxis]
+    if irregular > 0:
+        train_data, _ = data_dropout(train_data, irregular)
+        test_data , _ = data_dropout(test_data, irregular)
+    return train_data, train_labels, test_data, test_labels
 
 
-def load_UEA(dataset):
-    train_data = loadarff(f'datasets/UEA/{dataset}/{dataset}_TRAIN.arff')[0]
-    test_data = loadarff(f'datasets/UEA/{dataset}/{dataset}_TEST.arff')[0]
+def load_UEA(dataset, irregular):
+    train_data = loadarff(f'{datasets_folder}/UEA/{dataset}/{dataset}_TRAIN.arff')[0]
+    test_data = loadarff(f'{datasets_folder}/UEA/{dataset}/{dataset}_TEST.arff')[0]
     
     def extract_data(data):
         res_data = []
@@ -111,26 +117,12 @@ def load_UEA(dataset):
     transform = { k : i for i, k in enumerate(labels)}
     train_y = np.vectorize(transform.get)(train_y)
     test_y = np.vectorize(transform.get)(test_y)
+    if irregular > 0:
+        train_X, _ = data_dropout(train_X, irregular)
+        test_X , _ = data_dropout(test_X, irregular)
     return train_X, train_y, test_X, test_y
     
     
-def load_forecast_npy(name, univar=False):
-    data = np.load(f'datasets/{name}.npy')    
-    if univar:
-        data = data[: -1:]
-        
-    train_slice = slice(None, int(0.6 * len(data)))
-    valid_slice = slice(int(0.6 * len(data)), int(0.8 * len(data)))
-    test_slice = slice(int(0.8 * len(data)), None)
-    
-    scaler = StandardScaler().fit(data[train_slice])
-    data = scaler.transform(data)
-    data = np.expand_dims(data, 0)
-
-    pred_lens = [24, 48, 96, 288, 672]
-    return data, train_slice, valid_slice, test_slice, scaler, pred_lens, 0
-
-
 def _get_time_features(dt):
     return np.stack([
         dt.minute.to_numpy(),
@@ -143,7 +135,7 @@ def _get_time_features(dt):
     ], axis=1).astype(np.float)
 
 def load_forecast_hdf(name, univar=False):
-    h5_path = 'datasets/{name}.h5' 
+    h5_path = f'{datasets_folder}/{name}.h5' 
     data = pd.read_hdf(h5_path) 
     data = data.to_numpy()
     print('raw data:',data.shape)
@@ -166,14 +158,15 @@ def load_forecast_hdf(name, univar=False):
         dt_embed = np.expand_dims(dt_scaler.transform(dt_embed), 0)
         data = np.concatenate([np.repeat(dt_embed, data.shape[0], axis=0), data], axis=-1)
     
-   
+    
     pred_lens = [48, 96 ,128,  168, 192, 288, 336, 672]
     padding = 200
         
     return data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols, padding
 
+
 def load_forecast_csv(name, univar=False):
-    data = pd.read_csv(f'datasets/{name}.csv', index_col='date', parse_dates=True)
+    data = pd.read_csv(f'{datasets_folder}/{name}.csv', index_col='date', parse_dates=True)
     dt_embed = _get_time_features(data.index)
     n_covariate_cols = dt_embed.shape[-1]
     
@@ -216,5 +209,30 @@ def load_forecast_csv(name, univar=False):
         padding = 200
         
     return data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols, padding
+
+
+def load_imputation(name, irregular):
+    data = pd.read_csv(f'{datasets_folder}/{name}.csv', index_col='date', parse_dates=True)
+    data = data.to_numpy()
+    print('raw data:',data.shape)
+    if name == 'ETTh1' or name == 'ETTh2':
+        train_slice = slice(None, 12*30*24)
+        valid_slice = slice(12*30*24, 16*30*24)
+        test_slice = slice(16*30*24, 20*30*24)
+    elif name == 'ETTm1' or name == 'ETTm2':
+        train_slice = slice(None, 12*30*24*4)
+        valid_slice = slice(12*30*24*4, 16*30*24*4)
+        test_slice = slice(16*30*24*4, 20*30*24*4)
+    else:
+        train_slice = slice(None, int(0.7 * len(data)))
+        valid_slice = slice(int(0.7 * len(data)), int(0.8 * len(data)))
+        test_slice = slice(int(0.8 * len(data)), None)
+    
+    scaler = StandardScaler().fit(data[train_slice])
+    data = scaler.transform(data)
+    data = np.expand_dims(data, 0)
+    missing_data, missing_mask = data_dropout(data, irregular)
+    lens = 96 
+    return data, missing_data, missing_mask, train_slice, valid_slice, test_slice, scaler, lens
 
 

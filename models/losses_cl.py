@@ -45,7 +45,7 @@ def contrastive_loss(z1, z2, z_neg = None, alpha=0.5, temporal_unit=0, debiase =
         ins_loss /= d_ins
     if d_temp != 0:
         temp_loss /= d_temp
-    print(f'temporal_loss: {temp_loss}, instance_loss:{ins_loss}')
+    # print(f'temporal_loss: {temp_loss}, instance_loss:{ins_loss}')
     return alpha * ins_loss + (1-alpha) * temp_loss, ins_loss, temp_loss
 
 

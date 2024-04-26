@@ -6,7 +6,6 @@ import os
 import sys
 import time
 import datetime
-# from tensorboardX import SummaryWriter
 from ctrl import CTRL
 import tasks
 import datautils
@@ -44,7 +43,6 @@ def main(args, run_dir, seed):
     os.makedirs(run_dir, exist_ok=True)   
     
     sys.stdout = Logger(os.path.join(run_dir,'log.txt')) 
-    # writer = SummaryWriter(run_dir)
 
     print("Dataset:", args.dataset)
     print("Arguments:", str(args))
@@ -56,11 +54,11 @@ def main(args, run_dir, seed):
     print('Loading data... ', end='')
     if args.loader == 'UCR':
         task_type = 'classification'
-        train_data, train_labels, test_data, test_labels = datautils.load_UCR(args.dataset)        
+        train_data, train_labels, test_data, test_labels = datautils.load_UCR(args.dataset, args.irregular)        
         
     elif args.loader == 'UEA':
         task_type = 'classification'
-        train_data, train_labels, test_data, test_labels = datautils.load_UEA(args.dataset)
+        train_data, train_labels, test_data, test_labels = datautils.load_UEA(args.dataset, args.irregular)
     
     elif args.loader == 'forecast_hdf':
         task_type = 'forecasting'
@@ -72,35 +70,21 @@ def main(args, run_dir, seed):
         task_type = 'forecasting'
         data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols, padding = datautils.load_forecast_csv(args.dataset)
         train_data = data[:, train_slice]
-        valid_data = data[:, valid_slice]
-        
-    elif args.loader == 'forecast_csv_univar':
-        task_type = 'forecasting'
-        data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols = datautils.load_forecast_csv(args.dataset, univar=True)
-        train_data = data[:, train_slice]
-        
-    elif args.loader == 'forecast_npy':
-        task_type = 'forecasting'
-        data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols = datautils.load_forecast_npy(args.dataset)
-        train_data = data[:, train_slice]
-        valid_data = data[:, valid_slice]
-        
-    elif args.loader == 'forecast_npy_univar':
-        task_type = 'forecasting'
-        data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols = datautils.load_forecast_npy(args.dataset, univar=True)
-        train_data = data[:, train_slice]
-        
-        
+        valid_data = data[:, valid_slice]    
+  
+    elif args.loader == 'imputation':
+        task_type = 'imputation'
+        data, missing_data, missing_mask, train_slice, valid_slice, test_slice, scaler, lens = datautils.load_imputation(args.dataset, args.irregular)
+        train_data = missing_data[:, train_slice]
+        valid_data = missing_data[:, valid_slice]
+                
     else:
         raise ValueError(f"Unknown loader {args.loader}.")
 
        
         
     if args.irregular > 0:
-        if task_type == 'classification':
-            train_data = data_dropout(train_data, args.irregular)
-            test_data = data_dropout(test_data, args.irregular)
-        else:
+        if task_type not in ['classification', 'imputation']:
             raise ValueError(f"Task type {task_type} is not supported when irregular>0.")
     print('done')
     
@@ -132,6 +116,7 @@ def main(args, run_dir, seed):
         device=device,
         **config
     )
+
     loss_log = model.fit(
         train_data,
         n_epochs=args.epochs,
@@ -149,6 +134,8 @@ def main(args, run_dir, seed):
             out, eval_res = tasks.eval_classification(model, train_data, train_labels, test_data, test_labels, eval_protocol='svm')
         elif task_type == 'forecasting':
             out, eval_res = tasks.eval_forecasting(model, data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols, padding)
+        elif task_type == 'imputation':
+            out, eval_res = tasks.eval_imputation(model, data, missing_data, missing_mask, train_slice, valid_slice, test_slice, scaler, lens)
         else:
             assert False
         pkl_save(f'{run_dir}/out.pkl', out)
@@ -168,7 +155,7 @@ if __name__ == '__main__':
     parser.add_argument('dataset', help='The dataset name')
     parser.add_argument('run_name', help='The folder name used to save model, output and evaluation metrics. This can be set to any word')
     parser.add_argument('--loader', type=str, required=True, help='The data loader used to load the experimental data. This can be set to UCR, UEA, forecast_csv, forecast_csv_univar, anomaly, or anomaly_coldstart')
-    parser.add_argument('--gpu', type=int, default=3, help='The gpu no. used for training and inference (defaults to 0)')
+    parser.add_argument('--gpu', type=int, default=0, help='The gpu no. used for training and inference (defaults to 0)')
     parser.add_argument('--batch-size', type=int, default=128, help='The batch size (defaults to 8)')
     parser.add_argument('--lr', type=float, default=0.001, help='The learning rate (defaults to 0.001)')
     parser.add_argument('--repr-dims', type=int, default=320, help='The representation dimension (defaults to 320)')
@@ -205,13 +192,16 @@ if __name__ == '__main__':
             for tmp in ['MSE', 'MAE', 'RSE', 'CORR']:
                 seed_res += eval_res['average']['all'][tmp] 
             seed_res +=[eval_res['average'][avg][tmp] for avg in ['avg_all'] for tmp in ['MSE', 'MAE', 'RSE', 'CORR']]  
-            all_res.append([seed_res])          
-            
+            all_res.append([seed_res])      
+        elif task_type == 'imputation':
+             all_res.append([[eval_res['norm']['MSE'],eval_res['norm']['MAE'], eval_res['raw']['MSE'], eval_res['raw']['MAE']]])
         else:
             assert False
     
     all_res = np.concatenate(all_res, axis = 0)
-    np.savetxt(f'{run_dir}/all_res.csv', all_res)
+    print('all_res.shape:', all_res.shape)
+    if len(all_res.shape)<3:
+        np.savetxt(f'{run_dir}/all_res.csv', all_res, delimiter=",", fmt='%.5f')
     mean_res = np.round(all_res.mean(0),5)
     std_res = np.round(all_res.std(0),5)
     print('result mean:', mean_res)

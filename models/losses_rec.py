@@ -21,10 +21,10 @@ def get_uniform_loss(x, t=2):
 
 
 def masked_mse_loss(y_pred: torch.Tensor, y_true: torch.Tensor, mask: torch.BoolTensor):
-    raw_result = masked_mse_loss2(y_pred, y_true, mask)
+    # raw_result = masked_mse_loss2(y_pred, y_true, mask)
     mask = mask.float()
     mask /= torch.mean((mask))
-    print('masked_mse_loss mask mean:', torch.mean((mask)))
+    # print('masked_mse_loss mask mean:', torch.mean((mask)))
     mask = torch.where(torch.isnan(mask), torch.zeros_like(mask), mask)
     mask = torch.where(torch.isnan(y_pred), torch.zeros_like(mask), mask) 
     mask = torch.where(torch.isnan(y_true), torch.zeros_like(mask), mask) 
@@ -32,12 +32,10 @@ def masked_mse_loss(y_pred: torch.Tensor, y_true: torch.Tensor, mask: torch.Bool
     loss = loss * mask
     loss = torch.where(torch.isnan(loss), torch.zeros_like(loss), loss)
     result = torch.mean(loss)
-    assert abs(result- raw_result)< 0.01, f"result = {result}; raw_result= {raw_result}"
+    # assert abs(result- raw_result)< 0.01, f"result = {result}; raw_result= {raw_result}"
     return result
 
 def masked_rmse_loss(y_pred: torch.Tensor, y_true: torch.Tensor, mask: torch.BoolTensor):
     return torch.sqrt(masked_mse_loss(y_pred, y_true, mask))
-
-
 
 

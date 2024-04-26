@@ -54,7 +54,7 @@ def eval_forecasting(model, data, train_slice, valid_slice, test_slice, scaler, 
         sliding_padding=padding,
         batch_size=256
     )# [n_TS,n_timestamps,n_features]
-
+    print('all_repr shape:', all_repr.shape)
     infer_time = time.time() - t
     
     train_repr = all_repr[:, train_slice]

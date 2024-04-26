@@ -74,9 +74,10 @@ def data_dropout(arr, p):
         replace=False
     )
     mask[ele_sel] = True
+    mask = mask.reshape(B, T)
     res = arr.copy()
-    res[mask.reshape(B, T)] = np.nan
-    return res
+    res[mask] = np.nan
+    return res, mask
 
 def name_with_datetime(prefix='default'):
     now = datetime.now()

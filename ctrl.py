@@ -80,6 +80,7 @@ class CTRL:
         self.lm = lm
         self.mask_ratio = mask_ratio
         self.taskW = taskW
+
         self.maskW = maskW
         self.hard_neg = hard_neg
         self.early_stop =False
@@ -117,7 +118,7 @@ class CTRL:
                 elif train_data.size > 40000:
                     n_iters = 200
                 else:
-                    n_iters = 1000
+                    n_iters = 100
 
         print("n_iters:",n_iters)
         print(" raw train_data:",train_data.shape) #(n_instance, n_timestamps, n_features)
@@ -126,7 +127,7 @@ class CTRL:
             if sections >= 2:
                 train_data = np.concatenate(split_without_nan(train_data, sections, axis=1), axis=0) 
            
-
+        print("train_data:",train_data.shape)
         temporal_missing = np.isnan(train_data).all(axis=-1).any(axis=0)
                 
         train_data = train_data[~np.isnan(train_data).all(axis=2).all(axis=1)]
@@ -232,7 +233,7 @@ class CTRL:
                     z2, 
                     z_neg,
                     temporal_unit=self.temporal_unit,
-                    debiase= self.debiase and (self.n_iters > 0.1*n_iters),
+                    debiase= self.debiase and ((n_epochs and self.n_epochs>0.1*n_epochs) or (n_iters and self.n_iters > 0.1*n_iters)),
                     threshold = self.threshold,
                     topk = self.topk
                 )
@@ -247,7 +248,7 @@ class CTRL:
                 uniform_loss2 = get_uniform_loss(enc2_norm)
 
                
-                loss = self.taskW * contrast_loss + (loss1 +loss2) 
+                loss = self.taskW * contrast_loss  + (loss1 +loss2)
                 loss.backward()
                 optimizer.step()
                 self.net.update_parameters(self._net) 
@@ -445,6 +446,7 @@ class CTRL:
             
         self.net.train(org_training)
         return output.numpy() #[n_TS,n_timestamps,n_features]
+    
 
     def save(self, fn):
         ''' Save the model to a file.

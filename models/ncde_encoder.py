@@ -67,6 +67,7 @@ class NCDEEncoder(torch.nn.Module):
         self.act = _get_activation_fn(activation)
         self.dropout1 = nn.Dropout(dropout)
         self.output_layer = nn.Linear(output_dims, input_dims)
+        
 
     def forward(self, x, mask=None):
         """
